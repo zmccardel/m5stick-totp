@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Authenticator Export Decoder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .output {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .output.show {
+            display: block;
+        }
+        
+        .output-content {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #333;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .copy-btn {
+            background: #28a745;
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        
+        .copy-btn:hover {
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+        
+        .error {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .account-preview {
+            background: white;
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        
+        .account-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Google Authenticator Decoder</h1>
+        <p class="subtitle">Convert your Google Authenticator export to M5Stick TOTP format</p>
+        
+        <div class="instructions">
+            <strong>How to export from Google Authenticator:</strong>
+            <ol>
+                <li>Open Google Authenticator app</li>
+                <li>Tap the three lines menu</li>
+                <li>Select "Transfer accounts" → "Export accounts"</li>
+                <li>Select the accounts you want to export</li>
+                <li>Show the QR code</li>
+                <li>Use a QR code scanner app to read the code</li>
+                <li>Copy the full URL (starts with "otpauth-migration://offline?data=")</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <label for="exportUrl">Paste Google Authenticator Export URL:</label>
+            <textarea id="exportUrl" rows="8" placeholder="otpauth-migration://offline?data=..."></textarea>
+        </div>
+        
+        <button onclick="decodeExport()">🔓 Decode & Convert</button>
+        
+        <div id="error" class="error"></div>
+        
+        <div id="output" class="output">
+            <label>CSV Format for M5Stick (copy this):</label>
+            <div id="csvOutput" class="output-content"></div>
+            <button class="copy-btn" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+            
+            <label style="margin-top: 20px;">Accounts Found:</label>
+            <div id="accountsPreview"></div>
+        </div>
+    </div>
+
+    <script>
+        function decodeExport() {
+            const url = document.getElementById('exportUrl').value.trim();
+            const errorDiv = document.getElementById('error');
+            const outputDiv = document.getElementById('output');
+            
+            errorDiv.classList.remove('show');
+            outputDiv.classList.remove('show');
+            
+            if (!url) {
+                showError('Please paste the export URL');
+                return;
+            }
+            
+            if (!url.startsWith('otpauth-migration://offline?data=')) {
+                showError('Invalid format. URL should start with "otpauth-migration://offline?data="');
+                return;
+            }
+            
+            try {
+                const dataParam = url.split('data=')[1];
+                if (!dataParam) {
+                    showError('Could not find data parameter in URL');
+                    return;
+                }
+                
+                // URL decode first
+                let base64Data = decodeURIComponent(dataParam);
+                
+                // Clean up the base64 string - remove any whitespace
+                base64Data = base64Data.replace(/\s/g, '');
+                
+                // Handle URL-safe base64 (- and _ instead of + and /)
+                base64Data = base64Data.replace(/-/g, '+').replace(/_/g, '/');
+                
+                // Add padding if needed
+                while (base64Data.length % 4) {
+                    base64Data += '=';
+                }
+                
+                console.log('Cleaned base64:', base64Data);
+                
+                const decoded = atob(base64Data);
+                const accounts = parseProtobuf(decoded);
+                
+                if (accounts.length === 0) {
+                    showError('No accounts found in the export');
+                    return;
+                }
+                
+                displayResults(accounts);
+            } catch (e) {
+                showError('Failed to decode: ' + e.message + '. Make sure you copied the complete URL.');
+                console.error(e);
+            }
+        }
+        
+        function parseProtobuf(data) {
+            const accounts = [];
+            let pos = 0;
+            
+            while (pos < data.length) {
+                const byte = data.charCodeAt(pos);
+                
+                if ((byte >> 3) === 1) { // Field 1: OtpParameters
+                    pos++;
+                    const length = readVarint(data, pos);
+                    pos = length.nextPos;
+                    const otpData = data.substring(pos, pos + length.value);
+                    pos += length.value;
+                    
+                    const account = parseOtpParameters(otpData);
+                    if (account) {
+                        accounts.push(account);
+                    }
+                } else {
+                    pos++;
+                }
+            }
+            
+            return accounts;
+        }
+        
+        function parseOtpParameters(data) {
+            let account = {name: '', secret: '', issuer: ''};
+            let pos = 0;
+            
+            while (pos < data.length) {
+                const byte = data.charCodeAt(pos);
+                const fieldNum = byte >> 3;
+                const wireType = byte & 0x07;
+                pos++;
+                
+                if (wireType === 2) { // Length-delimited
+                    const length = readVarint(data, pos);
+                    pos = length.nextPos;
+                    const value = data.substring(pos, pos + length.value);
+                    pos += length.value;
+                    
+                    if (fieldNum === 1) { // Secret
+                        account.secret = base32Encode(value);
+                    } else if (fieldNum === 2) { // Name
+                        account.name = value;
+                    } else if (fieldNum === 3) { // Issuer
+                        account.issuer = value;
+                    }
+                }
+            }
+            
+            // Use issuer if available, otherwise use name
+            const displayName = account.issuer || account.name.split(':')[0] || 'Unknown';
+            
+            return account.secret ? {
+                name: displayName,
+                secret: account.secret
+            } : null;
+        }
+        
+        function readVarint(data, pos) {
+            let value = 0;
+            let shift = 0;
+            let byte;
+            
+            do {
+                byte = data.charCodeAt(pos++);
+                value |= (byte & 0x7F) << shift;
+                shift += 7;
+            } while (byte & 0x80);
+            
+            return {value, nextPos: pos};
+        }
+        
+        function base32Encode(bytes) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            let bits = 0;
+            let value = 0;
+            let output = '';
+            
+            for (let i = 0; i < bytes.length; i++) {
+                value = (value << 8) | bytes.charCodeAt(i);
+                bits += 8;
+                
+                while (bits >= 5) {
+                    output += alphabet[(value >>> (bits - 5)) & 31];
+                    bits -= 5;
+                }
+            }
+            
+            if (bits > 0) {
+                output += alphabet[(value << (5 - bits)) & 31];
+            }
+            
+            return output;
+        }
+        
+        function displayResults(accounts) {
+            const csvOutput = document.getElementById('csvOutput');
+            const accountsPreview = document.getElementById('accountsPreview');
+            const outputDiv = document.getElementById('output');
+            
+            // Generate CSV
+            const csv = accounts.map(acc => `${acc.name},${acc.secret}`).join('\n');
+            csvOutput.textContent = csv;
+            
+            // Generate preview
+            accountsPreview.innerHTML = accounts.map(acc => `
+                <div class="account-preview">
+                    <span class="account-name">${acc.name}</span><br>
+                    <small>Secret: ${acc.secret}</small>
+                </div>
+            `).join('');
+            
+            outputDiv.classList.add('show');
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '⚠️ ' + message;
+            errorDiv.classList.add('show');
+        }
+        
+        function copyToClipboard() {
+            const csvOutput = document.getElementById('csvOutput');
+            const text = csvOutput.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>
